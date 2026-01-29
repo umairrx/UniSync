@@ -10,7 +10,12 @@ import {
   type TimeSlot,
   type TimetableSettings,
 } from "@/types";
-import { createSlotKey, formatTimeSlotShort, formatTimeSlotStartOnly, generateTimeSlots } from "@/utils/timetable";
+import {
+  createSlotKey,
+  formatTimeSlotShort,
+  formatTimeSlotStartOnly,
+  generateTimeSlots,
+} from "@/utils/timetable";
 import { useDroppable, useDraggable } from "@dnd-kit/core";
 
 interface TimetableGridProps {
@@ -172,15 +177,8 @@ export const TimetableGrid = memo(
         return map;
       }, [courses]);
 
-      // Pre-calculate all slot data to avoid expensive operations during render
       const processedTimetable = useMemo(() => {
         const data: Record<string, SlotEntryData[]> = {};
-
-        // We can't just iterate the timetable keys because we need to support lookup by slotKey
-        // actually, we can, and just store them in the map.
-        // But creating the full map of ALL generic slots isn't needed, just the ones with data?
-        // No, for the render loop below, we access `processedTimetable[slotKey]`.
-        // So populate it with valid data.
 
         Object.entries(timetable).forEach(([key, entries]) => {
           if (!entries || entries.length === 0) return;
@@ -200,16 +198,18 @@ export const TimetableGrid = memo(
         return data;
       }, [timetable, courseMap]);
 
-      const handleSlotClick = useCallback((day: DayOfWeek, time: TimeSlot) => {
-        const slotKey = createSlotKey(day, time);
-        if (selectedSlot === slotKey) {
-          // Second click on the same slot - open modal (for mobile reliability)
-          onSlotDoubleClick(day, time);
-          setSelectedSlot(null);
-        } else {
-          setSelectedSlot(slotKey);
-        }
-      }, [selectedSlot, onSlotDoubleClick]);
+      const handleSlotClick = useCallback(
+        (day: DayOfWeek, time: TimeSlot) => {
+          const slotKey = createSlotKey(day, time);
+          if (selectedSlot === slotKey) {
+            onSlotDoubleClick(day, time);
+            setSelectedSlot(null);
+          } else {
+            setSelectedSlot(slotKey);
+          }
+        },
+        [selectedSlot, onSlotDoubleClick],
+      );
 
       const handleSlotDoubleClickWrapper = useCallback(
         (day: DayOfWeek, time: TimeSlot) => {
@@ -244,10 +244,10 @@ export const TimetableGrid = memo(
               >
                 <ZoomIn className="h-4 w-4" />
               </Button>
-              <Button 
-                variant="outline" 
-                size="icon" 
-                onClick={() => setZoom(100)} 
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setZoom(100)}
                 title="Reset zoom"
                 aria-label="Reset timetable zoom to 100%"
               >
@@ -278,7 +278,8 @@ export const TimetableGrid = memo(
                   <div className="space-y-2">
                     <h3 className="text-lg font-bold">No Courses Added</h3>
                     <p className="text-sm text-muted-foreground leading-relaxed">
-                      You need to add your courses to the list before you can start building your timetable.
+                      You need to add your courses to the list before you can start building your
+                      timetable.
                     </p>
                   </div>
                 </div>
@@ -311,7 +312,9 @@ export const TimetableGrid = memo(
                       index === timeSlots.length - 1 && "rounded-tr-lg",
                     )}
                   >
-                    <span className="hidden sm:inline">{formatTimeSlotShort(time, settings.intervalMinutes)}</span>
+                    <span className="hidden sm:inline">
+                      {formatTimeSlotShort(time, settings.intervalMinutes)}
+                    </span>
                     <span className="sm:hidden">{formatTimeSlotStartOnly(time)}</span>
                   </div>
                 ))}
@@ -325,9 +328,7 @@ export const TimetableGrid = memo(
                         dayIndex === DAYS.length - 1 && "rounded-bl-lg",
                       )}
                     >
-                      <span className="sm:writing-mode-horizontal">
-                        {day.substring(0, 3)}
-                      </span>
+                      <span className="sm:writing-mode-horizontal">{day.substring(0, 3)}</span>
                     </div>
 
                     {timeSlots.map((time, timeIndex) => {

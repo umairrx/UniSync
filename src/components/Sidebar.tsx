@@ -11,7 +11,6 @@ import { TimetableImageUpload } from "@/components/TimetableImageUpload";
 import { TimetableImageGallery } from "@/components/TimetableImageGallery";
 import type { Course, TimetableData, TimetableImage } from "@/types";
 
-// Static JSX elements hoisted outside component
 const GettingStartedSection = () => (
   <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-primary/5 border border-primary/10 shadow-sm mb-2">
     <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0">

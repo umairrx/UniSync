@@ -37,7 +37,6 @@ import { DndContext, DragOverlay } from "@dnd-kit/core";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
 
-// Static JSX elements hoisted outside component
 const GettingStartedSection = () => (
   <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-primary/5 border border-primary/10 shadow-sm mb-2">
     <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
@@ -268,7 +267,11 @@ export default function TimetablePage() {
               <div className="flex items-center justify-between gap-2 sm:gap-4">
                 <Link to="/" className="flex items-center gap-2 sm:gap-3">
                   <img
-                    src={resolvedTheme === "dark" ? "/unisync-full-white.svg" : "/unisync-full-dark.svg"}
+                    src={
+                      resolvedTheme === "dark"
+                        ? "/unisync-full-white.svg"
+                        : "/unisync-full-dark.svg"
+                    }
                     alt="UniSync - Return to Landing Page"
                     className="h-8 sm:h-10 w-auto object-contain hover:opacity-80 transition-opacity"
                   />
