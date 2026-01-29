@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://unisync.umairrx.dev/sitemap.xml

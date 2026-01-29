@@ -24,8 +24,7 @@ const COURSE_SCHEMA_JSON = `[
     "name": "Compiler Construction Lab",
     "class": "BSCS-F-22-A-799",
     "credits": 1,
-    "faculty": "Mr. Wahab Ali",
-    "classroom": "C-301 (Shift-I)"
+    "faculty": "Mr. Wahab Ali"
   }
 ]`;
 
@@ -35,9 +34,16 @@ IMPORTANT INSTRUCTIONS:
 1. **Format**: Strictly follow the JSON structure.
 2. **Credits**: Must be a number (e.g. 3, 4, 1).
 3. **Faculty**: Teacher's name (optional but recommended).
-4. **Classroom**: Room number e.g. "C-303 (Shift-I)" (optional).
-5. **Class**: Section name e.g. "BSCS-F-22-A".
+4. **Class**: Section name e.g. "BSCS-F-22-A".
 `;
+
+import {
+  validateCourseCode,
+  validateCourseName,
+  validateSection,
+  validateCredits,
+} from "@/utils/validation";
+import { extractErrorMessage } from "@/utils/errorHandling";
 
 export function ImportCoursesModal({ onAddCourse }: ImportCoursesModalProps) {
   const [open, setOpen] = useState(false);
@@ -56,26 +62,40 @@ export function ImportCoursesModal({ onAddCourse }: ImportCoursesModalProps) {
       const errors: string[] = [];
       let addedCount = 0;
 
-      parsed.forEach((item: any, index) => {
-        if (!item.code || !item.name || !item.class || item.credits === undefined) {
-          errors.push(`Item ${index + 1}: Missing required fields (code, name, class, credits)`);
+      parsed.forEach((item: Record<string, unknown>, index) => {
+        const itemCode = String(item.code || "").trim();
+        const itemName = String(item.name || "").trim();
+        const itemClass = String(item.class || "").trim();
+        const itemCredits = item.credits as string | number;
+
+        const codeVal = validateCourseCode(itemCode);
+        const nameVal = validateCourseName(itemName);
+        const classVal = validateSection(itemClass);
+        const creditsVal = validateCredits(itemCredits);
+
+        if (!codeVal.isValid || !nameVal.isValid || !classVal.isValid || !creditsVal.isValid) {
+          const itemErrors = [
+            codeVal.error,
+            nameVal.error,
+            classVal.error,
+            creditsVal.error,
+          ].filter(Boolean);
+          errors.push(`Item ${index + 1}: ${itemErrors.join(", ")}`);
           return;
         }
 
         try {
           onAddCourse({
-            code: String(item.code).trim().toUpperCase(),
-            name: String(item.name).trim(),
-            class: String(item.class).trim().toUpperCase(),
-            credits: Number(item.credits),
+            code: itemCode.toUpperCase(),
+            name: itemName,
+            class: itemClass.toUpperCase(),
+            credits: Number(itemCredits),
             faculty: item.faculty ? String(item.faculty).trim() : undefined,
             classroom: item.classroom ? String(item.classroom).trim() : undefined,
           });
           addedCount++;
         } catch (e) {
-          errors.push(
-            `Item ${index + 1}: Failed to add - ${e instanceof Error ? e.message : "Unknown error"}`,
-          );
+          errors.push(`Item ${index + 1}: Failed to add - ${extractErrorMessage(e)}`);
         }
       });
 
@@ -94,7 +114,7 @@ export function ImportCoursesModal({ onAddCourse }: ImportCoursesModalProps) {
       setOpen(false);
       setJsonInput("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Invalid JSON format");
+      setError(extractErrorMessage(err));
     }
   };
 
@@ -107,9 +127,9 @@ export function ImportCoursesModal({ onAddCourse }: ImportCoursesModalProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="gap-2 w-full">
-          <Upload className="h-4 w-4" />
-          Import Courses
+        <Button variant="outline" size="sm" className="gap-1.5 w-full justify-center text-xs">
+          <Upload className="h-3.5 w-3.5" />
+          Import
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">

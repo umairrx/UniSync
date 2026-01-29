@@ -1,5 +1,7 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, forwardRef, Fragment } from "react";
+import { ZoomOut, ZoomIn, RotateCcw, MousePointer2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import {
   DAYS,
   type Course,
@@ -9,7 +11,7 @@ import {
   type TimetableSettings,
 } from "@/types";
 import { createSlotKey, formatTimeSlotShort, generateTimeSlots } from "@/utils/timetable";
-import { useDroppable } from "@dnd-kit/core";
+import { useDroppable, useDraggable } from "@dnd-kit/core";
 
 interface TimetableGridProps {
   courses: Course[];
@@ -18,11 +20,15 @@ interface TimetableGridProps {
   onSlotDoubleClick: (day: DayOfWeek, time: TimeSlot) => void;
 }
 
+interface SlotEntryData {
+  course: Course;
+  classroom?: string;
+}
+
 interface DroppableSlotProps {
   day: DayOfWeek;
   time: TimeSlot;
-  course?: Course;
-  classroom?: string; // New prop
+  entries: SlotEntryData[];
   isSelected: boolean;
   isLastRow: boolean;
   isLastCol: boolean;
@@ -30,11 +36,66 @@ interface DroppableSlotProps {
   onSlotDoubleClick: (day: DayOfWeek, time: TimeSlot) => void;
 }
 
+function DraggableGridEntry({
+  entry,
+  slotKey,
+  isClash,
+}: {
+  entry: SlotEntryData;
+  slotKey: string;
+  isClash: boolean;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `grid-${slotKey}-${entry.course.id}`,
+    data: {
+      type: "course",
+      course: entry.course,
+      classroom: entry.classroom,
+      sourceSlotKey: slotKey,
+    },
+  });
+
+  const style = transform
+    ? {
+        transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+        zIndex: 50,
+      }
+    : undefined;
+
+  const displayClassroom = entry.classroom || entry.course.classroom || "No Room";
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
+      {...attributes}
+      className={cn(
+        "text-[10px] w-full flex flex-col justify-between p-1 rounded transition-colors cursor-grab active:cursor-grabbing",
+        isClash && "bg-background/50 border border-border/50 py-1.5 h-auto",
+        !isClash && "h-full",
+        isDragging && "opacity-0",
+      )}
+    >
+      <div className="text-[7px] sm:text-[8px] text-muted-foreground leading-tight truncate font-medium">
+        {entry.course.faculty || "Unknown Faculty"}
+      </div>
+
+      <div className="font-bold text-foreground text-[8px] sm:text-[10px] line-clamp-2 my-0.5">
+        {entry.course.name}
+      </div>
+
+      <div className="text-[7px] sm:text-[9px] font-bold mt-auto text-foreground/80">
+        {displayClassroom}
+      </div>
+    </div>
+  );
+}
+
 function DroppableSlot({
   day,
   time,
-  course,
-  classroom,
+  entries,
   isSelected,
   isLastRow,
   isLastCol,
@@ -47,146 +108,206 @@ function DroppableSlot({
     data: { day, time },
   });
 
-  const displayClassroom = classroom || course?.classroom || "No Room";
+  const hasEntries = entries.length > 0;
+  const isClash = entries.length > 1;
 
   return (
     <div
       ref={setNodeRef}
       onClick={() => onSlotClick(day, time)}
       onDoubleClick={() => onSlotDoubleClick(day, time)}
+      title={
+        hasEntries
+          ? `${entries.map((e) => e.course.code).join(", ")}`
+          : "Double-click to assign a course"
+      }
       className={cn(
-        "border-t border-l border-border p-1 cursor-pointer transition-all duration-200 min-h-[70px]",
-        "hover:bg-accent/50 flex flex-col items-center justify-center text-center",
+        "border-t border-l border-border p-1 sm:p-1.5 cursor-pointer transition-all duration-200 min-h-[60px] sm:min-h-[70px] flex flex-col items-center justify-center text-center group",
+        "hover:bg-accent/50",
         isLastCol && "border-r",
         isLastRow && "border-b",
         isLastRow && isLastCol && "rounded-br-lg",
-        isSelected && !course && "bg-accent ring-2 ring-ring",
-        course && "bg-primary/10 dark:bg-primary/20",
+        isSelected && !hasEntries && "bg-accent ring-2 ring-ring",
+        hasEntries && "bg-primary/5 dark:bg-primary/10",
+        isClash && "bg-secondary dark:bg-secondary/40",
         isOver && "bg-primary/30 ring-2 ring-primary border-primary",
       )}
     >
-      {course ? (
-        <div className="text-xs w-full h-full flex flex-col justify-between p-1">
-          <div className="text-[10px] text-muted-foreground leading-tight truncate font-medium">
-            {course.faculty || "Unknown Faculty"}
-          </div>
-
-          <div className="font-bold text-primary dark:text-primary-foreground text-xs line-clamp-2 my-1">
-            {course.name}
-          </div>
-
-          <div className="text-xs font-bold mt-auto text-foreground/80">
-            {displayClassroom}
-          </div>
+      {hasEntries ? (
+        <div className={cn("w-full h-full flex gap-1", isClash ? "flex-col" : "flex-row")}>
+          {entries.map((entry, idx) => (
+            <DraggableGridEntry
+              key={`${entry.course.id}-${idx}`}
+              entry={entry}
+              slotKey={slotKey}
+              isClash={isClash}
+            />
+          ))}
         </div>
       ) : (
         <span
           className={cn(
-            "text-muted-foreground text-xs opacity-0 group-hover:opacity-100",
+            "text-muted-foreground opacity-0 group-hover:opacity-100 text-[7px] sm:text-[9px]",
             isOver && "opacity-100 text-primary-foreground",
           )}
         >
-          {isOver ? "Drop Here" : "Click to select"}
+          {isOver ? "Drop Here" : "Double-click to assign"}
         </span>
       )}
     </div>
   );
 }
 
-export function TimetableGrid({
-  courses,
-  timetable,
-  settings,
-  onSlotDoubleClick,
-}: TimetableGridProps) {
-  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+export const TimetableGrid = forwardRef<HTMLDivElement, TimetableGridProps>(
+  ({ courses, timetable, settings, onSlotDoubleClick }, ref) => {
+    const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+    const [zoom, setZoom] = useState(100);
 
-  const timeSlots = useMemo(() => generateTimeSlots(settings), [settings]);
+    const timeSlots = useMemo(() => generateTimeSlots(settings), [settings]);
 
-  const getSlotData = (day: DayOfWeek, time: TimeSlot) => {
-    const slotKey = createSlotKey(day, time);
-    // Handle both legacy string and new object format
-    const entry = timetable[slotKey];
-    if (!entry) return { course: undefined, classroom: undefined };
+    const courseMap = useMemo(() => {
+      const map = new Map<string, Course>();
+      courses.forEach((c) => map.set(c.id, c));
+      return map;
+    }, [courses]);
 
-    const courseId = typeof entry === 'string' ? entry : entry.courseId;
-    const classroom = typeof entry === 'string' ? undefined : entry.classroom;
-    
-    const course = courses.find((c) => c.id === courseId);
-    return { course, classroom };
-  };
+    const getSlotEntriesData = (day: DayOfWeek, time: TimeSlot): SlotEntryData[] => {
+      const slotKey = createSlotKey(day, time);
+      const entries = timetable[slotKey];
+      if (!entries || entries.length === 0) return [];
 
-  const handleSlotClick = (day: DayOfWeek, time: TimeSlot) => {
-    const slotKey = createSlotKey(day, time);
-    setSelectedSlot((prev) => (prev === slotKey ? null : slotKey));
-  };
+      return entries
+        .map((entry) => {
+          const course = courseMap.get(entry.courseId);
+          if (!course) return null;
+          const data: SlotEntryData = {
+            course,
+            classroom: entry.classroom,
+          };
+          return data;
+        })
+        .filter((data): data is SlotEntryData => data !== null);
+    };
 
-  const handleSlotDoubleClickWrapper = (day: DayOfWeek, time: TimeSlot) => {
-    onSlotDoubleClick(day, time);
-    setSelectedSlot(null);
-  };
+    const handleSlotClick = (day: DayOfWeek, time: TimeSlot) => {
+      const slotKey = createSlotKey(day, time);
+      setSelectedSlot((prev) => (prev === slotKey ? null : slotKey));
+    };
 
-  return (
-    <div className="w-full">
-      <div
-        className="grid w-full border border-border rounded-lg overflow-hidden"
-        style={{
-          gridTemplateColumns: `100px repeat(${timeSlots.length}, 1fr)`,
-          gridTemplateRows: `auto repeat(${DAYS.length}, minmax(70px, auto))`,
-        }}
-      >
-        <div className="bg-muted text-muted-foreground font-semibold p-2 text-center text-sm rounded-tl-lg sticky left-0 z-10 box-border border-b border-border">
-          Day / Time
-        </div>
-        {timeSlots.map((time, index) => (
-          <div
-            key={time}
-            className={cn(
-              "bg-muted text-muted-foreground font-semibold p-2 text-center text-xs whitespace-nowrap border-b border-border",
-              index === timeSlots.length - 1 && "rounded-tr-lg",
-            )}
-          >
-            {formatTimeSlotShort(time, settings.intervalMinutes)}
-          </div>
-        ))}
+    const handleSlotDoubleClickWrapper = (day: DayOfWeek, time: TimeSlot) => {
+      onSlotDoubleClick(day, time);
+      setSelectedSlot(null);
+    };
 
-        {DAYS.map((day, dayIndex) => (
-          <>
-            <div
-              key={`${day}-label`}
-              className={cn(
-                "bg-muted font-semibold p-2 flex items-center justify-center text-sm border-t border-border sticky left-0 z-10",
-                dayIndex === DAYS.length - 1 && "rounded-bl-lg",
-              )}
+    return (
+      <div className="space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setZoom((prev) => Math.max(50, prev - 10))}
+              title="Zoom out"
             >
-              {day}
+              <ZoomOut className="h-4 w-4" />
+            </Button>
+            <span className="text-sm font-medium w-12 text-center">{zoom}%</span>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setZoom((prev) => Math.min(150, prev + 10))}
+              title="Zoom in"
+            >
+              <ZoomIn className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="icon" onClick={() => setZoom(100)} title="Reset zoom">
+              <RotateCcw className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <div className="flex items-start gap-2 px-2 py-1.5 rounded-lg bg-accent border border-accent/20">
+            <MousePointer2 className="h-3 w-3 text-accent-foreground/70 mt-0.5 shrink-0" />
+            <p className="text-[10px] leading-relaxed text-muted-foreground font-medium">
+              <span className="text-accent-foreground font-bold">Pro Tip:</span> Double-click any
+              empty slot to manually assign a course or update rooms.
+            </p>
+          </div>
+        </div>
+
+        <div
+          className="w-full overflow-x-auto"
+          style={{
+            transform: `scale(${zoom / 100})`,
+            transformOrigin: "top left",
+            width: `${100 / (zoom / 100)}%`,
+          }}
+        >
+          <div
+            ref={ref}
+            className="grid bg-background rounded-lg border border-border p-1"
+            style={{
+              gridTemplateColumns: `minmax(50px, 70px) repeat(${timeSlots.length}, minmax(80px, 1fr))`,
+              gridTemplateRows: `auto repeat(${DAYS.length}, minmax(60px, auto))`,
+              minWidth: "min(100vw, 800px)",
+            }}
+          >
+            <div className="bg-muted text-muted-foreground font-semibold p-1 text-center text-[9px] sm:text-[10px] flex items-center justify-center rounded-tl-lg sticky left-0 z-10 box-border border-b border-r border-border">
+              Day / Time
             </div>
+            {timeSlots.map((time, index) => (
+              <div
+                key={time}
+                className={cn(
+                  "bg-muted text-muted-foreground font-semibold p-1 text-center text-[9px] sm:text-[10px] whitespace-nowrap border-b border-border flex items-center justify-center",
+                  index !== timeSlots.length - 1 && "border-r",
+                  index === timeSlots.length - 1 && "rounded-tr-lg",
+                )}
+              >
+                {formatTimeSlotShort(time, settings.intervalMinutes)}
+              </div>
+            ))}
 
-            {timeSlots.map((time, timeIndex) => {
-              const slotKey = createSlotKey(day, time);
-              const { course, classroom } = getSlotData(day, time);
-              const isSelected = selectedSlot === slotKey;
-              const isLastRow = dayIndex === DAYS.length - 1;
-              const isLastCol = timeIndex === timeSlots.length - 1;
+            {DAYS.map((day, dayIndex) => (
+              <Fragment key={day}>
+                <div
+                  className={cn(
+                    "bg-muted font-semibold p-1 flex items-center justify-center text-[9px] sm:text-[10px] border-r border-border sticky left-0 z-10",
+                    dayIndex !== 0 && "border-t",
+                    dayIndex === DAYS.length - 1 && "rounded-bl-lg",
+                  )}
+                >
+                  <span className="writing-mode-vertical sm:writing-mode-horizontal rotate-180 sm:rotate-0">
+                    {day.substring(0, 3)}
+                  </span>
+                </div>
 
-              return (
-                <DroppableSlot
-                  key={slotKey}
-                  day={day}
-                  time={time}
-                  course={course}
-                  classroom={classroom}
-                  isSelected={isSelected}
-                  isLastRow={isLastRow}
-                  isLastCol={isLastCol}
-                  onSlotClick={handleSlotClick}
-                  onSlotDoubleClick={handleSlotDoubleClickWrapper}
-                />
-              );
-            })}
-          </>
-        ))}
+                {timeSlots.map((time, timeIndex) => {
+                  const slotKey = createSlotKey(day, time);
+                  const entries = getSlotEntriesData(day, time);
+                  const isSelected = selectedSlot === slotKey;
+                  const isLastRow = dayIndex === DAYS.length - 1;
+                  const isLastCol = timeIndex === timeSlots.length - 1;
+
+                  return (
+                    <DroppableSlot
+                      key={slotKey}
+                      day={day}
+                      time={time}
+                      entries={entries}
+                      isSelected={isSelected}
+                      isLastRow={isLastRow}
+                      isLastCol={isLastCol}
+                      onSlotClick={handleSlotClick}
+                      onSlotDoubleClick={handleSlotDoubleClickWrapper}
+                    />
+                  );
+                })}
+              </Fragment>
+            ))}
+          </div>
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  },
+);
+TimetableGrid.displayName = "TimetableGrid";

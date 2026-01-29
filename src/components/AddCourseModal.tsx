@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Plus } from "lucide-react";
 import {
   Dialog,
@@ -13,6 +13,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { Course } from "@/types";
+
+import {
+  validateCourseCode,
+  validateCourseName,
+  validateSection,
+  validateCredits,
+} from "@/utils/validation";
+import { extractErrorMessage } from "@/utils/errorHandling";
 
 interface AddCourseModalProps {
   courses: Course[];
@@ -41,8 +49,9 @@ export function AddCourseModal({ courses, onAddCourse }: AddCourseModalProps) {
     setError("");
   };
 
-  useEffect(() => {
-    const trimmedCode = code.trim().toUpperCase();
+  const handleCodeChange = (newCode: string) => {
+    setCode(newCode);
+    const trimmedCode = newCode.trim().toUpperCase();
     if (trimmedCode) {
       const existingCourse = courses.find((c) => c.code === trimmedCode);
       if (existingCourse) {
@@ -58,42 +67,33 @@ export function AddCourseModal({ courses, onAddCourse }: AddCourseModalProps) {
         }
       }
     }
-  }, [code, courses]);
+  };
 
   const handleNewCourseSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
-    if (!code.trim()) {
-      setError("Course code is required");
-      return;
-    }
-    if (!/^[A-Z0-9]{1,10}$/.test(code.trim().toUpperCase())) {
-      setError("Course code must be 1-10 alphanumeric characters");
+    const codeResult = validateCourseCode(code);
+    if (!codeResult.isValid) {
+      setError(codeResult.error!);
       return;
     }
 
-    if (!name.trim()) {
-      setError("Course name is required");
-      return;
-    }
-    if (name.trim().length < 3 || name.trim().length > 100) {
-      setError("Course name must be 3-100 characters long");
+    const nameResult = validateCourseName(name);
+    if (!nameResult.isValid) {
+      setError(nameResult.error!);
       return;
     }
 
-    if (!classSection.trim()) {
-      setError("Section is required");
-      return;
-    }
-    if (!/^[A-Z0-9-]{1,20}$/.test(classSection.trim().toUpperCase())) {
-      setError("Section must be 1-20 alphanumeric characters (hyphens allowed)");
+    const sectionResult = validateSection(classSection);
+    if (!sectionResult.isValid) {
+      setError(sectionResult.error!);
       return;
     }
 
-    const creditValue = parseInt(credits, 10);
-    if (isNaN(creditValue) || creditValue < 0 || creditValue > 6) {
-      setError("Credits must be a number between 0 and 6");
+    const creditsResult = validateCredits(credits);
+    if (!creditsResult.isValid) {
+      setError(creditsResult.error!);
       return;
     }
 
@@ -102,15 +102,15 @@ export function AddCourseModal({ courses, onAddCourse }: AddCourseModalProps) {
         code: code.trim().toUpperCase(),
         name: name.trim(),
         class: classSection.trim().toUpperCase(),
-        credits: creditValue,
+        credits: Number.parseInt(credits, 10),
         faculty: faculty.trim() || undefined,
         classroom: classroom.trim() || undefined,
       });
 
       resetForm();
       setOpen(false);
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Failed to add course");
+    } catch (err) {
+      setError(extractErrorMessage(err));
     }
   };
 
@@ -144,7 +144,7 @@ export function AddCourseModal({ courses, onAddCourse }: AddCourseModalProps) {
                 id="code"
                 placeholder="CS101"
                 value={code}
-                onChange={(e) => setCode(e.target.value)}
+                onChange={(e) => handleCodeChange(e.target.value)}
                 className="col-span-3"
                 required
               />

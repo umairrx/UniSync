@@ -7,3 +7,7 @@ export { ImportTimetableModal } from "./ImportTimetableModal";
 export { ImportCoursesModal } from "./ImportCoursesModal";
 export { ClearConfirmationDialog } from "./ClearConfirmationDialog";
 export { CreditsDisplay } from "./CreditsDisplay";
+export { TimetableImageUpload } from "./TimetableImageUpload";
+export { TimetableImageGallery } from "./TimetableImageGallery";
+export { ErrorBoundary } from "./ErrorBoundary";
+export { SEO } from "./SEO";

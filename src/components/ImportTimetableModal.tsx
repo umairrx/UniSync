@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Upload, Copy, Check } from "lucide-react";
+import { Upload, Copy, Check, Trash2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -12,12 +12,17 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import type { Course, DayOfWeek, TimeSlot } from "@/types";
-import { createSlotKey } from "@/utils/timetable";
+import { Checkbox } from "@/components/ui/checkbox";
+import type { Course } from "@/types";
+import { parseTimetableImport } from "@/utils/importTimetable";
 
 interface ImportTimetableModalProps {
   courses: Course[];
-  onImportTimetable: (assignments: { slotKey: string; courseId: string; classroom?: string }[]) => void;
+  onImportTimetable: (
+    assignments: { slotKey: string; courseId: string; classroom?: string }[],
+    clearExisting: boolean,
+    missingCourses: { code: string; section?: string; name: string }[],
+  ) => void;
 }
 
 const TIMETABLE_SCHEMA_JSON = `[
@@ -26,7 +31,7 @@ const TIMETABLE_SCHEMA_JSON = `[
     "time": "08:00",
     "courseCode": "CS434",
     "section": "BSCS-F-22-A-799",
-    "classroom": "C-303 (Shift-I)"
+    "classroom": "C-303"
   },
   {
     "day": "Tuesday",
@@ -47,7 +52,7 @@ IMPORTANT INSTRUCTIONS:
    - One for "12:00"
 3. **Days**: Use full English names: "Monday", "Tuesday", "Wednesday", "Thursday", "Friday".
 4. **Course Code**: Must match exactly with existing courses.
-5. **Classroom**: Include if available.
+5. **Classroom**: Room number only (e.g. "C-303"). DO NOT include Shift info like "(Shift-I)".
 `;
 
 export function ImportTimetableModal({ courses, onImportTimetable }: ImportTimetableModalProps) {
@@ -56,84 +61,30 @@ export function ImportTimetableModal({ courses, onImportTimetable }: ImportTimet
   const [error, setError] = useState<string>("");
   const [copied, setCopied] = useState(false);
 
+  const [clearExisting, setClearExisting] = useState(false);
+
   const handleImport = () => {
     setError("");
-    try {
-      const parsed = JSON.parse(jsonInput);
-      if (!Array.isArray(parsed)) {
-        throw new Error("JSON must be an array of assignment objects");
-      }
+    const { assignments, missingCourses, errors } = parseTimetableImport(jsonInput, courses);
 
-      const assignments: { slotKey: string; courseId: string; classroom?: string }[] = [];
-      const errors: string[] = [];
-
-      parsed.forEach((item: any, index) => {
-        if (!item.day || !item.time || !item.courseCode) {
-          errors.push(`Item ${index + 1}: Missing day, time, or courseCode`);
-          return;
-        }
-
-        const day = item.day as DayOfWeek;
-
-        if (!["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].includes(day)) {
-          errors.push(`Item ${index + 1}: Invalid day '${day}'`);
-          return;
-        }
-
-        const time = item.time as TimeSlot;
-
-        let foundCourse: Course | undefined;
-        if (item.section) {
-          foundCourse = courses.find((c) => c.code === item.courseCode && c.class === item.section);
-        } else {
-          const matches = courses.filter((c) => c.code === item.courseCode);
-          if (matches.length === 1) {
-            foundCourse = matches[0];
-          } else if (matches.length > 1) {
-            errors.push(
-              `Item ${index + 1}: Multiple courses found for code '${item.courseCode}'. Please specify 'section'.`,
-            );
-            return;
-          } else {
-            errors.push(`Item ${index + 1}: Course '${item.courseCode}' not found.`);
-            return;
-          }
-        }
-
-        if (!foundCourse) {
-          if (!errors[errors.length - 1]?.includes("Course")) {
-            errors.push(
-              `Item ${index + 1}: Course '${item.courseCode}' ${item.section ? `(Section ${item.section})` : ""} not found.`,
-            );
-          }
-          return;
-        }
-
-        assignments.push({
-          slotKey: createSlotKey(day, time),
-          courseId: foundCourse.id,
-          classroom: item.classroom,
-        });
-      });
-
-      if (errors.length > 0) {
-        throw new Error(
-          `Import failed with ${errors.length} errors:\n` +
-            errors.slice(0, 3).join("\n") +
-            (errors.length > 3 ? `\n...and ${errors.length - 3} more` : ""),
-        );
-      }
-
-      if (assignments.length === 0) {
-        throw new Error("No valid assignments found to import.");
-      }
-
-      onImportTimetable(assignments);
-      setOpen(false);
-      setJsonInput("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Invalid JSON format");
+    if (errors.length > 0) {
+      setError(
+        `Import failed with ${errors.length} errors:\n` +
+          errors.slice(0, 3).join("\n") +
+          (errors.length > 3 ? `\n...and ${errors.length - 3} more` : ""),
+      );
+      return;
     }
+
+    if (assignments.length === 0 && missingCourses.length === 0) {
+      setError("No valid assignments found to import.");
+      return;
+    }
+
+    onImportTimetable(assignments, clearExisting, missingCourses);
+    setOpen(false);
+    setJsonInput("");
+    setClearExisting(false);
   };
 
   const copyPrompt = () => {
@@ -145,9 +96,9 @@ export function ImportTimetableModal({ courses, onImportTimetable }: ImportTimet
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="gap-2 w-full">
-          <Upload className="h-4 w-4" />
-          Import Timetable
+        <Button variant="outline" size="sm" className="gap-1.5 w-full justify-center text-xs">
+          <Upload className="h-3.5 w-3.5" />
+          Timetable
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
@@ -187,6 +138,23 @@ export function ImportTimetableModal({ courses, onImportTimetable }: ImportTimet
           <p className="text-xs text-muted-foreground">
             Paste an array of objects with day, time, and courseCode.
           </p>
+
+          <div className="flex items-center space-x-2 pt-2 border-t mt-4">
+            <Checkbox
+              id="clear-existing"
+              checked={clearExisting}
+              onCheckedChange={(checked) => setClearExisting(checked === true)}
+            />
+            <div className="grid gap-1.5 leading-none">
+              <label
+                htmlFor="clear-existing"
+                className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center gap-1.5 text-muted-foreground"
+              >
+                <Trash2 className="h-3 w-3" />
+                Clear existing assignments before importing
+              </label>
+            </div>
+          </div>
         </div>
 
         <DialogFooter>

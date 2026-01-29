@@ -29,7 +29,9 @@ export function DeleteCourseModal({
   if (!course) return null;
 
   const affectedSlots = Object.entries(timetable)
-    .filter(([, courseId]) => courseId === course.id)
+    .filter(([, entries]) => {
+      return entries.some((e) => e.courseId === course.id);
+    })
     .map(([slotKey]) => {
       const parsed = parseSlotKey(slotKey);
       return parsed ? `${parsed.day}, ${formatTime(parsed.time)}` : slotKey;
