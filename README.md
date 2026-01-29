@@ -1,4 +1,4 @@
-# TIME
+# UniSync
 
 A smart course scheduling system for students. Create your perfect weekly timetable with drag-and-drop ease.
 
@@ -37,4 +37,4 @@ npm run build
 
 ## License
 
-MIT
+This project is licensed under the [MIT License](LICENSE).
