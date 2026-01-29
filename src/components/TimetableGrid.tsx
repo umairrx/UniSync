@@ -1,4 +1,4 @@
-import { useState, useMemo, forwardRef, Fragment } from "react";
+import { useState, useMemo, forwardRef, Fragment, useCallback, memo } from "react";
 import { ZoomOut, ZoomIn, RotateCcw, MousePointer2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -36,7 +36,7 @@ interface DroppableSlotProps {
   onSlotDoubleClick: (day: DayOfWeek, time: TimeSlot) => void;
 }
 
-function DraggableGridEntry({
+const DraggableGridEntry = memo(function DraggableGridEntry({
   entry,
   slotKey,
   isClash,
@@ -90,9 +90,9 @@ function DraggableGridEntry({
       </div>
     </div>
   );
-}
+});
 
-function DroppableSlot({
+const DroppableSlot = memo(function DroppableSlot({
   day,
   time,
   entries,
@@ -156,9 +156,9 @@ function DroppableSlot({
       )}
     </div>
   );
-}
+});
 
-export const TimetableGrid = forwardRef<HTMLDivElement, TimetableGridProps>(
+export const TimetableGrid = memo(forwardRef<HTMLDivElement, TimetableGridProps>(
   ({ courses, timetable, settings, onSlotDoubleClick }, ref) => {
     const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
     const [zoom, setZoom] = useState(100);
@@ -171,33 +171,41 @@ export const TimetableGrid = forwardRef<HTMLDivElement, TimetableGridProps>(
       return map;
     }, [courses]);
 
-    const getSlotEntriesData = (day: DayOfWeek, time: TimeSlot): SlotEntryData[] => {
-      const slotKey = createSlotKey(day, time);
-      const entries = timetable[slotKey];
-      if (!entries || entries.length === 0) return [];
+    // Pre-calculate all slot data to avoid expensive operations during render
+    const processedTimetable = useMemo(() => {
+      const data: Record<string, SlotEntryData[]> = {};
+      
+      // We can't just iterate the timetable keys because we need to support lookup by slotKey
+      // actually, we can, and just store them in the map. 
+      // But creating the full map of ALL generic slots isn't needed, just the ones with data?
+      // No, for the render loop below, we access `processedTimetable[slotKey]`.
+      // So populate it with valid data.
+      
+      Object.entries(timetable).forEach(([key, entries]) => {
+          if(!entries || entries.length === 0) return;
+          
+          const validEntries = entries.map((entry): SlotEntryData | null => {
+             const course = courseMap.get(entry.courseId);
+             if (!course) return null;
+             return { course, classroom: entry.classroom };
+          }).filter((x): x is SlotEntryData => x !== null);
+          
+          if(validEntries.length > 0) {
+              data[key] = validEntries;
+          }
+      });
+      return data;
+    }, [timetable, courseMap]);
 
-      return entries
-        .map((entry) => {
-          const course = courseMap.get(entry.courseId);
-          if (!course) return null;
-          const data: SlotEntryData = {
-            course,
-            classroom: entry.classroom,
-          };
-          return data;
-        })
-        .filter((data): data is SlotEntryData => data !== null);
-    };
-
-    const handleSlotClick = (day: DayOfWeek, time: TimeSlot) => {
+    const handleSlotClick = useCallback((day: DayOfWeek, time: TimeSlot) => {
       const slotKey = createSlotKey(day, time);
       setSelectedSlot((prev) => (prev === slotKey ? null : slotKey));
-    };
+    }, []);
 
-    const handleSlotDoubleClickWrapper = (day: DayOfWeek, time: TimeSlot) => {
+    const handleSlotDoubleClickWrapper = useCallback((day: DayOfWeek, time: TimeSlot) => {
       onSlotDoubleClick(day, time);
       setSelectedSlot(null);
-    };
+    }, [onSlotDoubleClick]);
 
     return (
       <div className="space-y-3">
@@ -283,7 +291,7 @@ export const TimetableGrid = forwardRef<HTMLDivElement, TimetableGridProps>(
 
                 {timeSlots.map((time, timeIndex) => {
                   const slotKey = createSlotKey(day, time);
-                  const entries = getSlotEntriesData(day, time);
+                  const entries = processedTimetable[slotKey] || [];
                   const isSelected = selectedSlot === slotKey;
                   const isLastRow = dayIndex === DAYS.length - 1;
                   const isLastCol = timeIndex === timeSlots.length - 1;
@@ -308,6 +316,6 @@ export const TimetableGrid = forwardRef<HTMLDivElement, TimetableGridProps>(
         </div>
       </div>
     );
-  },
+  }),
 );
 TimetableGrid.displayName = "TimetableGrid";

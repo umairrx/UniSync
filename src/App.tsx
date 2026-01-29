@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { Trash2, BookOpen, Calendar, Download, Loader2, MousePointer2 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Toaster, toast } from "sonner";
@@ -6,20 +6,18 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import {
-  TimetableGrid,
-  CourseList,
-  AddCourseModal,
-  ImportTimetableModal,
-  ImportCoursesModal,
-  AssignCourseModal,
-  DeleteCourseModal,
-  ClearConfirmationDialog,
-  CreditsDisplay,
-  TimetableImageUpload,
-  TimetableImageGallery,
-  SEO,
-} from "@/components";
+import { TimetableGrid } from "@/components/TimetableGrid";
+import { CourseList } from "@/components/CourseList";
+import { AddCourseModal } from "@/components/AddCourseModal";
+import { ImportTimetableModal } from "@/components/ImportTimetableModal";
+import { ImportCoursesModal } from "@/components/ImportCoursesModal";
+import { AssignCourseModal } from "@/components/AssignCourseModal";
+import { DeleteCourseModal } from "@/components/DeleteCourseModal";
+import { ClearConfirmationDialog } from "@/components/ClearConfirmationDialog";
+import { CreditsDisplay } from "@/components/CreditsDisplay";
+import { TimetableImageUpload } from "@/components/TimetableImageUpload";
+import { TimetableImageGallery } from "@/components/TimetableImageGallery";
+import { SEO } from "@/components/SEO";
 import { SettingsModal } from "@/components/SettingsModal";
 import ModeToggle from "@/components/mode-toggle";
 import {
@@ -38,6 +36,32 @@ import type { DayOfWeek, TimeSlot } from "@/types";
 import { DndContext, DragOverlay } from "@dnd-kit/core";
 import { Badge } from "./components/ui/badge";
 
+// Static JSX elements hoisted outside component
+const GettingStartedSection = () => (
+  <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-primary/5 border border-primary/10 shadow-sm mb-2">
+    <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+      <MousePointer2 className="h-3 w-3 text-primary" />
+    </div>
+    <div className="space-y-0.5">
+      <p className="text-[11px] font-bold text-foreground">Getting Started</p>
+      <p className="text-[10px] leading-relaxed text-muted-foreground">
+        1. Add your courses manually or import a JSON. <br />
+        2. Drag cards to the grid or double-click slots. <br />
+        3. Export your perfect timetable as a PNG!
+      </p>
+    </div>
+  </div>
+);
+
+const ReferenceImagesDescription = () => (
+  <div className="flex items-start gap-2 px-2 py-1.5 rounded-lg bg-accent/10 border border-accent/20 mb-2">
+    <MousePointer2 className="h-2.5 w-2.5 text-accent-foreground/70 mt-0.5 shrink-0" />
+    <p className="text-[9px] leading-tight text-muted-foreground">
+      Upload your university's official timetable image to keep it side-by-side for quick reference.
+    </p>
+  </div>
+);
+
 export default function App() {
   const { courses, addCourse, deleteCourse, clearCourses, getCourseById } = useCourses();
   const {
@@ -53,7 +77,10 @@ export default function App() {
   const { settings, setSettings } = useSettings();
   const { images: timetableImages, addImage, deleteImage, clearImages } = useTimetableImages();
 
-  const { totalCredits, scheduledCredits } = calculateCredits(courses, timetable);
+  const { totalCredits, scheduledCredits } = useMemo(
+    () => calculateCredits(courses, timetable),
+    [courses, timetable],
+  );
 
   const { resolvedTheme } = useTheme();
 
@@ -95,12 +122,15 @@ export default function App() {
     [settings, timetable, setSettings, setTimetable],
   );
 
+  const { setAssignModalOpen, setDeleteModalOpen } = modalState;
+  const { handleSlotDoubleClick: onSlotSelect, setCourseToDelete } = slotSelection;
+
   const handleSlotDoubleClick = useCallback(
     (day: DayOfWeek, time: TimeSlot) => {
-      slotSelection.handleSlotDoubleClick(day, time);
-      modalState.setAssignModalOpen(true);
+      onSlotSelect(day, time);
+      setAssignModalOpen(true);
     },
-    [slotSelection, modalState],
+    [onSlotSelect, setAssignModalOpen],
   );
 
   const handleAssignCourse = useCallback(
@@ -129,38 +159,85 @@ export default function App() {
     [slotSelection.selectedSlot, removeCourseFromSlot],
   );
 
-  useEffect(() => {
-    const cleanup = () => {
-      const courseIds = new Set(courses.map((c) => c.id));
+  const handleDeleteCourseRequest = useCallback(
+    (course: any) => {
+      setCourseToDelete(course);
+      setDeleteModalOpen(true);
+    },
+    [setCourseToDelete, setDeleteModalOpen],
+  );
 
-      setTimetable((prev) => {
-        let hasChanges = false;
-        const newTimetable: typeof prev = {};
+  const handleImportTimetable = useCallback(
+    (
+      assignments: {
+        slotKey: string;
+        courseId: string;
+        classroom?: string;
+      }[],
+      clearExisting: boolean,
+      missingCourses: { code: string; section?: string; name: string }[],
+    ) => {
+      if (clearExisting) {
+        clearTimetable();
+      }
 
-        Object.keys(prev).forEach((key) => {
-          const originalEntries = prev[key];
-          const validEntries = originalEntries.filter((e) => courseIds.has(e.courseId));
-
-          if (validEntries.length !== originalEntries.length) {
-            hasChanges = true;
-          }
-
-          if (validEntries.length > 0) {
-            newTimetable[key] = validEntries;
-          }
+      const tempIdToRealId: Record<string, string> = {};
+      missingCourses.forEach((mc) => {
+        const newCourse = addCourse({
+          code: mc.code,
+          class: mc.section || "A",
+          name: mc.name,
+          credits: 3,
         });
-
-        if (hasChanges) {
-          console.log("Cleaned up orphaned timetable assignments");
-          return newTimetable;
-        }
-        return prev;
+        const key = `temp-${mc.code}-${mc.section || "DEFAULT"}`;
+        tempIdToRealId[key] = newCourse.id;
       });
-    };
 
-    cleanup();
-    const interval = setInterval(cleanup, 10000);
-    return () => clearInterval(interval);
+      assignments.forEach(({ slotKey, courseId, classroom }) => {
+        const finalCourseId = courseId.startsWith("temp-") ? tempIdToRealId[courseId] : courseId;
+
+        if (finalCourseId) {
+          assignCourse(slotKey, { courseId: finalCourseId, classroom });
+        }
+      });
+
+      if (missingCourses.length > 0) {
+        toast.success(
+          `Imported ${assignments.length} assignments and created ${missingCourses.length} missing courses.`,
+        );
+      } else {
+        toast.success(`Imported ${assignments.length} assignments.`);
+      }
+    },
+    [addCourse, assignCourse, clearTimetable],
+  );
+
+  useEffect(() => {
+    const courseIds = new Set(courses.map((c) => c.id));
+
+    setTimetable((prev) => {
+      let hasChanges = false;
+      const newTimetable: typeof prev = {};
+
+      Object.keys(prev).forEach((key) => {
+        const originalEntries = prev[key];
+        const validEntries = originalEntries.filter((e) => courseIds.has(e.courseId));
+
+        if (validEntries.length !== originalEntries.length) {
+          hasChanges = true;
+        }
+
+        if (validEntries.length > 0) {
+          newTimetable[key] = validEntries;
+        }
+      });
+
+      if (hasChanges) {
+        console.log("Cleaned up orphaned timetable assignments");
+        return newTimetable;
+      }
+      return prev;
+    });
   }, [courses, setTimetable]);
 
   const handleConfirmDelete = useCallback(() => {
@@ -218,19 +295,7 @@ export default function App() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-primary/5 border border-primary/10 shadow-sm mb-2">
-                      <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                        <MousePointer2 className="h-3 w-3 text-primary" />
-                      </div>
-                      <div className="space-y-0.5">
-                        <p className="text-[11px] font-bold text-foreground">Getting Started</p>
-                        <p className="text-[10px] leading-relaxed text-muted-foreground">
-                          1. Add your courses manually or import a JSON. <br />
-                          2. Drag cards to the grid or double-click slots. <br />
-                          3. Export your perfect timetable as a PNG!
-                        </p>
-                      </div>
-                    </div>
+                    <GettingStartedSection />
 
                     <CreditsDisplay
                       totalCredits={totalCredits}
@@ -247,49 +312,7 @@ export default function App() {
                         <ImportCoursesModal onAddCourse={addCourse} />
                         <ImportTimetableModal
                           courses={courses}
-                          onImportTimetable={(
-                            assignments: {
-                              slotKey: string;
-                              courseId: string;
-                              classroom?: string;
-                            }[],
-                            clearExisting: boolean,
-                            missingCourses: { code: string; section?: string; name: string }[],
-                          ) => {
-                            if (clearExisting) {
-                              clearTimetable();
-                            }
-
-                            const tempIdToRealId: Record<string, string> = {};
-                            missingCourses.forEach((mc) => {
-                              const newCourse = addCourse({
-                                code: mc.code,
-                                class: mc.section || "A",
-                                name: mc.name,
-                                credits: 3,
-                              });
-                              const key = `temp-${mc.code}-${mc.section || "DEFAULT"}`;
-                              tempIdToRealId[key] = newCourse.id;
-                            });
-
-                            assignments.forEach(({ slotKey, courseId, classroom }) => {
-                              const finalCourseId = courseId.startsWith("temp-")
-                                ? tempIdToRealId[courseId]
-                                : courseId;
-
-                              if (finalCourseId) {
-                                assignCourse(slotKey, { courseId: finalCourseId, classroom });
-                              }
-                            });
-
-                            if (missingCourses.length > 0) {
-                              toast.success(
-                                `Imported ${assignments.length} assignments and created ${missingCourses.length} missing courses.`,
-                              );
-                            } else {
-                              toast.success(`Imported ${assignments.length} assignments.`);
-                            }
-                          }}
+                          onImportTimetable={handleImportTimetable}
                         />
                       </div>
                     </div>
@@ -300,13 +323,7 @@ export default function App() {
                           Reference Images
                         </p>
                       </div>
-                      <div className="flex items-start gap-2 px-2 py-1.5 rounded-lg bg-accent/10 border border-accent/20 mb-2">
-                        <MousePointer2 className="h-2.5 w-2.5 text-accent-foreground/70 mt-0.5 shrink-0" />
-                        <p className="text-[9px] leading-tight text-muted-foreground">
-                          Upload your university's official timetable image to keep it side-by-side
-                          for quick reference.
-                        </p>
-                      </div>
+                      <ReferenceImagesDescription />
                       <div className="grid grid-cols-2 gap-2">
                         <TimetableImageUpload onUpload={addImage} />
                         <TimetableImageGallery
@@ -359,13 +376,7 @@ export default function App() {
 
                     <Separator />
 
-                    <CourseList
-                      courses={courses}
-                      onDeleteCourse={(course) => {
-                        slotSelection.setCourseToDelete(course);
-                        modalState.setDeleteModalOpen(true);
-                      }}
-                    />
+                    <CourseList courses={courses} onDeleteCourse={handleDeleteCourseRequest} />
                   </CardContent>
                 </Card>
               </div>

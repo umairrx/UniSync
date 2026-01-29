@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { BookOpen, LayoutList, LayoutGrid, List, MousePointer2, Trash2 } from "lucide-react";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { Button } from "@/components/ui/button";
@@ -16,7 +17,7 @@ interface CourseListProps {
   onDeleteCourse?: (course: Course) => void;
 }
 
-function DraggableCourseItem({
+const DraggableCourseItem = memo(function DraggableCourseItem({
   course,
   viewMode,
   onDelete,
@@ -191,9 +192,9 @@ function DraggableCourseItem({
       </div>
     </div>
   );
-}
+});
 
-export function CourseList({ courses, onDeleteCourse }: CourseListProps) {
+export const CourseList = memo(function CourseList({ courses, onDeleteCourse }: CourseListProps) {
   const [viewMode, setViewMode] = useLocalStorage<ViewMode>("course_list_view_mode", "list");
 
   if (courses.length === 0) {
@@ -272,4 +273,4 @@ export function CourseList({ courses, onDeleteCourse }: CourseListProps) {
       </div>
     </TooltipProvider>
   );
-}
+});

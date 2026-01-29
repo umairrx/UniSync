@@ -1,5 +1,4 @@
 import { useState, useCallback, useRef } from "react";
-import * as htmlToImage from "html-to-image";
 
 export function useTimetableExport(resolvedTheme: string | undefined) {
   const timetableRef = useRef<HTMLDivElement>(null);
@@ -14,6 +13,8 @@ export function useTimetableExport(resolvedTheme: string | undefined) {
       if (timetableRef.current === null) {
         throw new Error("Timetable not ready for export");
       }
+
+      const htmlToImage = await import("html-to-image");
 
       const dataUrl = await htmlToImage.toPng(timetableRef.current, {
         cacheBust: true,
