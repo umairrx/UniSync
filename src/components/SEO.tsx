@@ -15,7 +15,7 @@ export function SEO({
   description = "Smart Course Scheduling System for students. autoTIMETABLE helps you manage your university courses and create the perfect weekly schedule in seconds.",
   name = "TIME",
   type = "website",
-  url = "https://unisync.umairrx.dev",
+  url = "https://time.umairrx.dev",
   image = "/og-image.png",
   twitterHandle = "@autimetable",
 }: SEOProps) {
