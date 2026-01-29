@@ -184,6 +184,9 @@
   body {
     @apply bg-background text-foreground;
   }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-primary ring-offset-background;
+  }
 }
 @layer utilities {
   .no-scrollbar::-webkit-scrollbar {
@@ -194,3 +197,18 @@
     scrollbar-width: none;
   }
 }
+
+/* Custom animations */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+

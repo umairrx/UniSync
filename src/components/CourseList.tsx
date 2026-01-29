@@ -72,9 +72,11 @@ const DraggableCourseItem = memo(function DraggableCourseItem({
           <Button
             variant="ghost"
             size="icon"
-            className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
+            className="h-7 w-7 sm:h-5 sm:w-5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
             onClick={handleDelete}
             onPointerDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
           >
             <Trash2 className={ICON_SIZES.TINY} />
           </Button>
@@ -96,13 +98,15 @@ const DraggableCourseItem = memo(function DraggableCourseItem({
             "opacity-50 ring-2 ring-primary border-primary bg-background shadow-xl z-50",
         )}
       >
-        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="absolute top-2 right-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
           <Button
             variant="ghost"
             size="icon"
-            className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10"
+            className="h-7 w-7 sm:h-6 sm:w-6 text-destructive hover:text-destructive hover:bg-destructive/10"
             onClick={handleDelete}
             onPointerDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
           >
             <Trash2 className={ICON_SIZES.SMALL} />
           </Button>
@@ -160,9 +164,11 @@ const DraggableCourseItem = memo(function DraggableCourseItem({
             <Button
               variant="ghost"
               size="icon"
-              className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
+              className="h-7 w-7 sm:h-6 sm:w-6 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
               onClick={handleDelete}
               onPointerDown={(e) => e.stopPropagation()}
+              onTouchStart={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
             >
               <Trash2 className={ICON_SIZES.SMALL} />
             </Button>
@@ -221,6 +227,7 @@ export const CourseList = memo(function CourseList({ courses, onDeleteCourse }: 
               onClick={() => setViewMode("list")}
               className="h-6 w-6"
               title="List View"
+              aria-label="Switch to list view"
             >
               <LayoutList className="h-3.5 w-3.5" />
             </Button>
@@ -230,6 +237,7 @@ export const CourseList = memo(function CourseList({ courses, onDeleteCourse }: 
               onClick={() => setViewMode("grid")}
               className="h-6 w-6"
               title="Grid View"
+              aria-label="Switch to grid view"
             >
               <LayoutGrid className="h-3.5 w-3.5" />
             </Button>
@@ -239,18 +247,23 @@ export const CourseList = memo(function CourseList({ courses, onDeleteCourse }: 
               onClick={() => setViewMode("compact")}
               className="h-6 w-6"
               title="Compact View"
+              aria-label="Switch to compact view"
             >
               <List className="h-3.5 w-3.5" />
             </Button>
           </div>
         </div>
 
-        <div className="flex items-start gap-2 px-2 py-2 rounded-lg bg-secondary/10 border border-secondary/20 mb-3">
-          <MousePointer2 className="h-3 w-3 text-secondary-foreground/70 mt-0.5 shrink-0" />
-          <p className="text-[10px] leading-relaxed text-muted-foreground font-medium">
-            <span className="text-secondary-foreground font-bold">Pro Tip:</span> Drag any course
-            card directly onto the timetable grid to assign it to a slot.
-          </p>
+        <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-primary/5 border border-primary/10 shadow-sm mb-3">
+          <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+            <MousePointer2 className="h-3 w-3 text-primary" />
+          </div>
+          <div className="space-y-0.5">
+            <p className="text-[11px] font-bold text-foreground">Pro Tip</p>
+            <p className="text-[10px] leading-relaxed text-muted-foreground">
+              Drag any course card directly onto the timetable grid to assign it to a slot.
+            </p>
+          </div>
         </div>
 
         <ScrollArea className="h-[calc(100vh-450px)] min-h-[300px] sm:min-h-[400px] rounded-md border p-1.5 sm:p-2 bg-muted/10 *:data-[slot=scroll-area-scrollbar]:hidden">

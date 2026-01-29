@@ -9,7 +9,7 @@ import { ImportCoursesModal } from "@/components/ImportCoursesModal";
 import { CreditsDisplay } from "@/components/CreditsDisplay";
 import { TimetableImageUpload } from "@/components/TimetableImageUpload";
 import { TimetableImageGallery } from "@/components/TimetableImageGallery";
-import type { Course } from "@/types";
+import type { Course, TimetableData, TimetableImage } from "@/types";
 
 // Static JSX elements hoisted outside component
 const GettingStartedSection = () => (
@@ -70,21 +70,25 @@ const ReferenceImagesDescription = () => (
 
 interface SidebarProps {
   courses: Course[];
-  timetable: Record<string, any[]>;
-  timetableImages: any[];
+  timetable: TimetableData;
+  timetableImages: TimetableImage[];
   totalCredits: number;
   scheduledCredits: number;
   isExporting: boolean;
   exportError: string | null;
-  onAddCourse: (course: any) => void;
-  onImportTimetable: (assignments: any[], clearExisting: boolean, missingCourses: any[]) => void;
-  onAddImage: (image: any) => void;
+  onAddCourse: (course: Omit<Course, "id">) => void;
+  onImportTimetable: (
+    assignments: { slotKey: string; courseId: string; classroom?: string }[],
+    clearExisting: boolean,
+    missingCourses: { code: string; section?: string; name: string }[],
+  ) => void;
+  onAddImage: (image: { name: string; dataUrl: string }) => void;
   onDeleteImage: (id: string) => void;
   onClearImages: () => void;
   onExportPng: () => void;
   onClearCourses: () => void;
   onClearTimetable: () => void;
-  onDeleteCourse: (course: any) => void;
+  onDeleteCourse: (course: Course) => void;
 }
 
 export function Sidebar({

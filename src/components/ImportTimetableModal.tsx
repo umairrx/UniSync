@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Upload, Copy, Check, Trash2 } from "lucide-react";
+import { Upload, Copy, Check, Trash2, AlertCircle } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { Course } from "@/types";
-import { parseTimetableImport } from "@/utils/importTimetable";
+import { parseTimetableImport, TIMETABLE_SCHEMA_JSON } from "@/utils/importTimetable";
 
 interface ImportTimetableModalProps {
   courses: Course[];
@@ -25,36 +25,6 @@ interface ImportTimetableModalProps {
   ) => void;
 }
 
-const TIMETABLE_SCHEMA_JSON = `[
-  {
-    "day": "Monday",
-    "time": "08:00",
-    "courseCode": "CS434",
-    "section": "BSCS-F-22-A-799",
-    "classroom": "C-303"
-  },
-  {
-    "day": "Tuesday",
-    "time": "10:00",
-    "courseCode": "HU414",
-    "classroom": "C-203"
-  }
-]`;
-
-const PROMPT_TEXT = `Generate timetable assignments as a JSON array matching this strict schema: ${TIMETABLE_SCHEMA_JSON}
-
-IMPORTANT INSTRUCTIONS:
-1. **Time Format**: Use ONLY the **Start Time** in 24-hour HH:MM format (e.g., "08:00", "13:00", "14:00").
-   - DO NOT use ranges like "10:00am-11:00am".
-   - DO NOT use AM/PM.
-2. **Multiple Hours**: If a class is 2 hours long (e.g., "11:00am-01:00pm"), you MUST generate **two separate objects**:
-   - One for "11:00"
-   - One for "12:00"
-3. **Days**: Use full English names: "Monday", "Tuesday", "Wednesday", "Thursday", "Friday".
-4. **Course Code**: Must match exactly with existing courses.
-5. **Classroom**: Room number only (e.g. "C-303"). DO NOT include Shift info like "(Shift-I)".
-`;
-
 export function ImportTimetableModal({ courses, onImportTimetable }: ImportTimetableModalProps) {
   const [open, setOpen] = useState(false);
   const [jsonInput, setJsonInput] = useState("");
@@ -62,6 +32,27 @@ export function ImportTimetableModal({ courses, onImportTimetable }: ImportTimet
   const [copied, setCopied] = useState(false);
 
   const [clearExisting, setClearExisting] = useState(false);
+
+  const courseListText = courses
+    .map((c) => `- ${c.code} (${c.class}): ${c.name}`)
+    .join("\n");
+
+  const PROMPT_TEXT = `Generate timetable assignments as a JSON array matching this strict schema: ${TIMETABLE_SCHEMA_JSON}
+
+AVAILABLE COURSES (USE ONLY THESE):
+${courseListText || "(No courses added yet - please add courses first!)"}
+
+IMPORTANT INSTRUCTIONS:
+1. **Time Format**: Use ONLY the **Start Time** in 24-hour HH:MM format (e.g., "08:00", "13:00", "14:00").
+   - DO NOT use ranges like "10:00am-11:00am".
+   - DO NOT use AM/PM.
+2. **Multiple Hours**: If a class is 2 hours long (e.g., "11:00am-01:00pm"), you MUST generate **two separate objects**:
+   - One for each hour block.
+3. **Days**: Use full English names: "Monday", "Tuesday", "Wednesday", "Thursday", "Friday".
+4. **Course Code**: Must match exactly with the listed course codes above.
+5. **Section/Class**: The "section" field must match the section code in parentheses above (e.g., "BSCS-7A").
+6. **Classroom**: Room number only (e.g. "C-303").
+`;
 
   const handleImport = () => {
     setError("");
@@ -155,13 +146,35 @@ export function ImportTimetableModal({ courses, onImportTimetable }: ImportTimet
               </label>
             </div>
           </div>
+
+          {courses.length === 0 && (
+            <div className="flex items-start gap-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg mt-2">
+              <AlertCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-tighter">Action Required</p>
+                <p className="text-[11px] leading-relaxed text-muted-foreground">
+                  You cannot import a timetable because your course list is empty. Please add your courses first.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <Button onClick={handleImport} disabled={!jsonInput.trim()}>
+          <Button 
+            onClick={handleImport} 
+            disabled={!jsonInput.trim() || courses.length === 0}
+            title={
+              courses.length === 0 
+                ? "Add courses first to enable import" 
+                : !jsonInput.trim() 
+                  ? "Paste JSON to enable import" 
+                  : "Start importing assignments"
+            }
+          >
             Import Assignments
           </Button>
         </DialogFooter>

@@ -2,6 +2,16 @@ import type { Course, DayOfWeek, TimeSlot } from "@/types";
 import { validateDay, validateTimeFormat } from "@/utils/validation";
 import { createSlotKey } from "@/utils/timetable";
 
+export const TIMETABLE_SCHEMA_JSON = `[
+  {
+    "day": "Monday",
+    "time": "08:00",
+    "courseCode": "CS434",
+    "section": "BSCS-7A",
+    "classroom": "C-303"
+  }
+]`;
+
 export interface TimetableImportResult {
   assignments: { slotKey: string; courseId: string; classroom?: string }[];
   missingCourses: { code: string; section?: string; name: string }[];

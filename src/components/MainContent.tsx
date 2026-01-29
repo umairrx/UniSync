@@ -1,13 +1,13 @@
 import { Calendar } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TimetableGrid } from "@/components/TimetableGrid";
-import type { DayOfWeek, TimeSlot, Course } from "@/types";
+import type { DayOfWeek, TimeSlot, Course, TimetableData, TimetableSettings } from "@/types";
 
 interface MainContentProps {
   timetableRef: React.RefObject<HTMLDivElement>;
   courses: Course[];
-  timetable: Record<string, any[]>;
-  settings: any;
+  timetable: TimetableData;
+  settings: TimetableSettings;
   onSlotDoubleClick: (day: DayOfWeek, time: TimeSlot) => void;
 }
 

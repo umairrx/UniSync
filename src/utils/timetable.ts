@@ -61,6 +61,18 @@ export function formatTimeSlotShort(time: TimeSlot, intervalMinutes: number = 60
   return `${s.time} ${s.ampm} - ${e.time} ${e.ampm}`;
 }
 
+export function formatTimeSlotStartOnly(time: TimeSlot): string {
+  const parts = time.split(":").map(Number);
+  const h = parts[0] >= 0 && parts[0] < 24 ? parts[0] : 0;
+  const m = parts[1] >= 0 && parts[1] < 60 ? parts[1] : 0;
+  
+  const date = new Date();
+  date.setHours(h, m, 0, 0);
+  
+  const { time: formattedTime, ampm } = formatSingleTime(date);
+  return `${formattedTime} ${ampm}`;
+}
+
 export function generateTimeSlots(settings: TimetableSettings): TimeSlot[] {
   const slots: TimeSlot[] = [];
   const [startH, startM] = settings.startTime.split(":").map(Number);
